@@ -1,0 +1,1593 @@
+##statistical analyses included in Chapter 2 seed addition manuscript
+
+library(corrplot)
+library(leaps)
+library(car)
+library(MASS)
+library(lsmeans)
+library(metafor)
+library(dplyr)
+
+
+data<-read.table("C:\\Users\\Amanda\\Documents\\PhD\\Chapter 2 seed addition\\Ch 2 seed addition final survey 2016.csv", header=T, sep=",") ## plant data 
+str(data)
+
+data2<-read.table("C:\\Users\\Amanda\\Documents\\PhD\\Chapter 2 seed addition\\HOBOdata\\HOBO data complied 2016.csv", header=T, sep=",") ## HOBO data 
+str(data2)
+attach (data2)
+
+
+##variable selection 
+
+##correlation matrix used to determine if covariates are collinear 
+
+comp<-cbind(data$area, data$vol, data$canopy, data$PAR, data$moist1, data$moist2)
+comp2<-cor(comp)
+library(corrplot)
+corrplot(comp2, method="number") 
+##volume and area are correlated, remove volume
+##canopy, area and volume are correlated, remove canopy
+##PAR correlations likely due to differences in microsite so will retain 
+
+##best subsets to determine if covariates explain a significant amount of variation 
+r1<-regsubsets(abundance~area+PAR+moist1+moist2,data=data,nbest=10)
+r1
+summary(r1) ##shows variables in each model 
+plot(r1, scale="r2") ## produces plot 
+##together all covariates have an r2 value of 0.0019, very low so will remove from future models
+
+r2<-regsubsets(above~area+PAR+moist1+moist2,data=data,nbest=10)
+r2
+summary(r2)  
+plot(r2, scale="r2")
+##together all covariates have an r2 valuje of 0.017, very low and will remove from future models
+
+r3<-regsubsets(below~area+PAR+moist1+moist2,data=data,nbest=10)
+r3
+summary(r3) 
+plot(r3, scale="r2")
+##together all covariates have an r2 valuje of 0.011, very low and will remove from future models
+
+r4<-regsubsets(flowersavg~area+PAR+moist1+moist2,data=data,nbest=10)
+r4
+summary(r4) 
+plot(r4, scale="r2")
+##together all covariates have an r2 valuje of 0.041, very low and will remove from future models
+
+
+
+
+
+
+#subsetting the data by species to run models separately by species 
+amsk<-subset(data, species=="amsk") #subset for Amsinckia tessellata 
+caul<-subset(data, species=="caul") #subset for Caulanthus lasiophyllus
+lepi<-subset(data, species=="lepi") #subset for Lipidium Nitidum
+mono<-subset(data, species=="mono") #subset for Monolopia lanceolata
+phac<-subset(data, species=="phac") #subset for Phacelia tanacetifolia
+erod<-subset(data, species=="erod") #subset for Erodium sp. 
+brome<-subset(data, species=="brome") #subset for Bromus madritensis ssp. rubens
+
+br<-subset(brome, removal=="present") #removing plots where brome was removed
+er<-subset(erod, removal=="present") # removing plots where erodium was removed 
+
+#convert percent cover data into proportion data for stats 
+percents<-(data$percent.cover/100)
+
+##testing each response variable and each species separately
+
+
+
+##biomass
+
+##amsinckia biomass
+amsk1<-subset(amsk, both>0) ##total biomass subsetting for values greater than zero (i.e. an individual was found in the plot)
+mass<-aov(both~micro*exclosure*removal, data=amsk1) #removed covariates as they do not significantly influence the model or have high explanatory power
+summary(mass)
+leveneTest(both~micro*exclosure*removal, data=amsk1) # tests for homogeniety of variances - non. sig = homogeneous, in package car 
+                        Df Sum Sq Mean Sq F value Pr(>F)  
+micro                    1 0.2456  0.2456   3.438 0.0724 .
+exclosure                1 0.0112  0.0112   0.157 0.6943  
+removal                  1 0.5199  0.5199   7.276 0.0108 *
+micro:exclosure          1 0.0001  0.0001   0.001 0.9736  
+micro:removal            1 0.0112  0.0112   0.156 0.6949  
+exclosure:removal        1 0.0355  0.0355   0.497 0.4856  
+micro:exclosure:removal  1 0.0059  0.0059   0.083 0.7749  
+Residuals               34 2.4293  0.0714                 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+shapiro.test(mass$residuals) # data is normal 
+
+amsk2<-subset(amsk, above>0) ## above ground biomass 
+amass<-aov(above~micro*exclosure*removal, data=amsk2)
+summary(amass)
+leveneTest(above~micro*exclosure*removal, data=amsk2)
+                        Df Sum Sq Mean Sq F value Pr(>F)  
+micro                    1 0.2361  0.2361   3.548 0.0682 .
+exclosure                1 0.0132  0.0132   0.198 0.6593  
+removal                  1 0.4624  0.4624   6.947 0.0126 *
+micro:exclosure          1 0.0002  0.0002   0.002 0.9620  
+micro:removal            1 0.0136  0.0136   0.204 0.6545  
+exclosure:removal        1 0.0366  0.0366   0.549 0.4637  
+micro:exclosure:removal  1 0.0023  0.0023   0.034 0.8540  
+Residuals               34 2.2628  0.0666                 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+shapiro.test(amass$residuals)# normal 
+
+amsk3<-subset(amsk, below>0) ## below ground biomass 
+bmass<-aov(sqrt(below)~micro*exclosure*removal, data=amsk3)## sqrt transformation to meet the assumption of normality and homogeneity of variances
+summary(bmass)
+leveneTest(below~micro*exclosure*removal, data=amsk3) ## sqrt transformation achieved homogenity of variances 
+ Sq F value Pr(>F)  
+micro                    1 0.01250 0.012501   1.680 0.2055  
+exclosure                1 0.00031 0.000311   0.042 0.8396  
+removal                  1 0.02952 0.029524   3.969 0.0562 .
+micro:exclosure          1 0.00141 0.001406   0.189 0.6671  
+micro:removal            1 0.00036 0.000358   0.048 0.8279  
+exclosure:removal        1 0.00329 0.003294   0.443 0.5112  
+micro:exclosure:removal  1 0.00383 0.003831   0.515 0.4789  
+Residuals               28 0.20830 0.007439       
+shapiro.test(bmass$residuals)#normality was acheived with sqrt transformation 
+
+##shrub covariates stats including area, moist1, moist2, PAR, and canopy were not included as they were not significant for any species or response 
+
+##Caulanthus biomass
+caul1<-subset(caul, both>0) ## total biomass
+grr<-log10(caul1$both) ##log transform to meet the assumptions of normality 
+mass<-aov(grr~micro*exclosure*removal, data=caul1)
+leveneTest(grr~micro*exclosure*removal, data=caul1) #homogeneous 
+summary(mass)
+                        Df Sum Sq Mean Sq F value Pr(>F)   
+micro                    1  0.800  0.8000   3.399 0.0755 . 
+exclosure                1  1.975  1.9748   8.391 0.0071 **
+removal                  1  0.340  0.3396   1.443 0.2394   
+micro:exclosure          1  0.007  0.0069   0.029 0.8650   
+micro:removal            1  0.029  0.0292   0.124 0.7274   
+exclosure:removal        1  0.024  0.0241   0.103 0.7510   
+micro:exclosure:removal  1  0.988  0.9885   4.200 0.0496 * 
+Residuals               29  6.825  0.2353   
+shapiro.test(mass$residuals) #normal after transformations 
+
+caul2<-subset(caul, above>0) #above ground biomass
+frr<-log10(caul2$above) #log transform to normalize
+mass<-aov(frr~micro*exclosure*removal, data=caul2)
+summary(mass)
+shapiro.test(mass$residuals) 
+leveneTest(frr~micro*exclosure*removal, data=caul2) #homogenous 
+                        Df Sum Sq Mean Sq F value Pr(>F)  
+micro                    1  0.868  0.8680   3.313 0.0791 .
+exclosure                1  1.932  1.9321   7.374 0.0110 *
+removal                  1  0.985  0.9847   3.758 0.0623 .
+micro:exclosure          1  0.000  0.0001   0.000 0.9886  
+micro:removal            1  0.027  0.0267   0.102 0.7519  
+exclosure:removal        1  0.034  0.0337   0.129 0.7224  
+micro:exclosure:removal  1  0.557  0.5573   2.127 0.1555  
+Residuals               29  7.599  0.2620                 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+caul3<-subset(caul, below>0) #below ground biomass
+urr<-log10(caul3$below) # log transform to normalize 
+mass<-aov(urr~micro*exclosure*removal, data=caul3)
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(urr~micro*exclosure*removal, data=caul3) # homogenous 
+                        Df Sum Sq Mean Sq F value  Pr(>F)   
+micro                    1  0.909  0.9094   3.316 0.07970 . 
+exclosure                1  1.769  1.7693   6.452 0.01715 * 
+removal                  1  0.040  0.0398   0.145 0.70626   
+micro:exclosure          1  0.029  0.0289   0.105 0.74790   
+micro:removal            1  0.225  0.2253   0.822 0.37270   
+exclosure:removal        1  0.007  0.0070   0.026 0.87402   
+micro:exclosure:removal  1  2.164  2.1641   7.891 0.00912 **
+Residuals               27  7.405  0.2742                   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+##  shrub only covariates were not significant and were not included
+
+## lipidium
+lepi1<-subset(lepi, both >0) #total biomass
+hh<-sqrt(lepi1$both) #square root transform to normalize 
+mass<-aov(hh~micro*exclosure*removal, data=lepi1)
+summary(mass)
+shapiro.test(mass$residuals) 
+leveneTest(hh~micro*exclosure*removal, data=lepi1) # homogenous 
+                        Df  Sum Sq Mean Sq F value  Pr(>F)   
+micro                    1 0.04854 0.04854   7.889 0.00829 **
+exclosure                1 0.00926 0.00926   1.504 0.22871   
+removal                  1 0.02391 0.02391   3.885 0.05716 . 
+micro:exclosure          1 0.00061 0.00061   0.099 0.75470   
+micro:removal            1 0.00412 0.00412   0.670 0.41901   
+exclosure:removal        1 0.01064 0.01064   1.729 0.19765   
+micro:exclosure:removal  1 0.00501 0.00501   0.814 0.37341   
+Residuals               33 0.20306 0.00615                   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+lepi2<-subset(lepi, above >0) #above ground biomass
+hh<-log10(lepi1$above) #log transform for normality 
+mass<-aov(hh~micro*exclosure*removal, data=lepi2)
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(hh~micro*exclosure*removal, data=lepi2) # homogenous 
+                        Df Sum Sq Mean Sq F value Pr(>F)  
+micro                    1  0.841  0.8407   5.172 0.0296 *
+exclosure                1  0.415  0.4150   2.553 0.1196  
+removal                  1  0.521  0.5214   3.208 0.0825 .
+micro:exclosure          1  0.109  0.1094   0.673 0.4179  
+micro:removal            1  0.113  0.1128   0.694 0.4109  
+exclosure:removal        1  0.218  0.2182   1.342 0.2549  
+micro:exclosure:removal  1  0.159  0.1590   0.979 0.3298  
+Residuals               33  5.364  0.1625                 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+lepi3<-subset(lepi, below >0) #below ground biomass 
+mass<-aov(below~micro*exclosure*removal, data=lepi3)
+summary(mass)
+shapiro.test(mass$residuals) ## normal 
+leveneTest(below~micro*exclosure*removal, data=lepi3) # homogenous
+                        Df    Sum Sq   Mean Sq F value   Pr(>F)    
+micro                    1 0.0002544 2.544e-04  14.303 0.000644 ***
+exclosure                1 0.0000134 1.338e-05   0.752 0.392237    
+removal                  1 0.0000126 1.257e-05   0.707 0.406693    
+micro:exclosure          1 0.0000034 3.410e-06   0.192 0.664608    
+micro:removal            1 0.0000012 1.220e-06   0.068 0.795237    
+exclosure:removal        1 0.0000951 9.510e-05   5.347 0.027344 *  
+micro:exclosure:removal  1 0.0000388 3.883e-05   2.184 0.149266    
+Residuals               32 0.0005691 1.778e-05                     
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+# no shrub covariates were significant and were omit 
+
+#Monolopia 
+mono1<-subset(mono, both >0) # total biomass 
+mm<-log10(mono1$both) # log tranform to normalize 
+mass<-aov(mm~micro*exclosure*removal, data=mono1)
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(mm~micro*exclosure*removal, data=mono1) ## homogenous
+                Df Sum Sq Mean Sq F value  Pr(>F)   
+micro            1  0.869  0.8691   6.158 0.02083 * 
+exclosure        1  0.000  0.0002   0.001 0.97293   
+removal          1  1.941  1.9413  13.754 0.00116 **
+micro:exclosure  1  0.260  0.2599   1.841 0.18796   
+micro:removal    1  0.040  0.0402   0.285 0.59863   
+Residuals       23  3.246  0.1411                   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+mono2<-subset(mono, above >0) # above ground biomass 
+nn<-log10(mono2$above) #log transform to normalize 
+mass<-aov(nn~micro*exclosure*removal, data=mono2)
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(nn~micro*exclosure*removal, data=mono2) # homogenous
+                Df Sum Sq Mean Sq F value  Pr(>F)    
+micro            1 0.9804  0.9804   7.322 0.01261 *  
+exclosure        1 0.0016  0.0016   0.012 0.91439    
+removal          1 2.4530  2.4530  18.320 0.00028 ***
+micro:exclosure  1 0.2648  0.2648   1.978 0.17298    
+micro:removal    1 0.0571  0.0571   0.426 0.52026    
+Residuals       23 3.0797  0.1339                    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+mono3<-subset(mono, below >0) # below ground biomass 
+mass<-aov(log(below)~micro*exclosure*removal, data=mono3) # log transform to normalize and achieve homogeneity of variances 
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(below~micro*exclosure*removal, data=mono3)
+                Df Sum Sq Mean Sq F value Pr(>F)  
+micro            1  1.258   1.258   0.917 0.3486  
+exclosure        1  0.000   0.000   0.000 0.9895  
+removal          1  4.051   4.051   2.954 0.0997 .
+micro:exclosure  1  2.048   2.048   1.494 0.2346  
+Residuals       22 30.164   1.371                 
+---
+
+# Phacelia 
+phac1<-subset(phac, both>0) # total biomass 
+mass<-aov(log(both)~micro*exclosure*removal, data=phac1) # log transform to normalize 
+summary(mass)
+shapiro.test(mass$residuals) ## normal 
+leveneTest(log(both)~micro*exclosure*removal, data=phac1) # homogenous 
+                        Df Sum Sq Mean Sq F value   Pr(>F)    
+micro                    1  31.17  31.171  20.379 3.48e-05 ***
+exclosure                1   7.30   7.303   4.774   0.0332 *  
+removal                  1   4.73   4.726   3.090   0.0845 .  
+micro:exclosure          1   1.64   1.644   1.075   0.3045    
+micro:removal            1   3.11   3.112   2.035   0.1595    
+exclosure:removal        1   1.02   1.017   0.665   0.4184    
+micro:exclosure:removal  1   0.22   0.218   0.143   0.7070    
+Residuals               54  82.60   1.530                     
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+phac2<-subset(phac, above>0) # above ground biomass
+mass<-aov(log(above)~micro*exclosure*removal, data=phac2) # log transform to normalize 
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(log(above)~micro*exclosure*removal, data=phac2) # homogenous 
+                        Df Sum Sq Mean Sq F value   Pr(>F)    
+micro                    1  34.18   34.18  21.161 2.59e-05 ***
+exclosure                1   8.42    8.42   5.213   0.0264 *  
+removal                  1   4.56    4.56   2.824   0.0986 .  
+micro:exclosure          1   2.08    2.08   1.287   0.2616    
+micro:removal            1   2.85    2.85   1.765   0.1895    
+exclosure:removal        1   1.52    1.52   0.942   0.3362    
+micro:exclosure:removal  1   0.30    0.30   0.186   0.6681    
+Residuals               54  87.23    1.62                     
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+phac3<-subset(phac, below>0) # below ground biomass 
+mass<-aov(log(below)~micro*exclosure*removal, data=phac3) # log transform 
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(log(below)~micro*exclosure*removal, data=phac3) # homogenous 
+                        Df Sum Sq Mean Sq F value Pr(>F)  
+micro                    1   5.77   5.765   3.785 0.0579 .
+exclosure                1   0.68   0.678   0.445 0.5082  
+removal                  1   4.54   4.542   2.982 0.0909 .
+micro:exclosure          1   1.72   1.716   1.127 0.2940  
+micro:removal            1   1.09   1.086   0.713 0.4028  
+exclosure:removal        1   0.06   0.060   0.039 0.8439  
+micro:exclosure:removal  1   0.25   0.247   0.162 0.6891  
+Residuals               46  70.08   1.523                 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+##Brome
+brome1<-subset(brome, both >0) # total biomass
+mass<-aov(log(both)~micro*exclosure, data=brome1) # log transform to normalize 
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(log(both)~micro*exclosure, data=brome1) # homogenous 
+                Df Sum Sq Mean Sq F value  Pr(>F)   
+micro            1  3.351   3.351   8.934 0.00424 **
+exclosure        1  0.591   0.591   1.576 0.21478   
+micro:exclosure  1  0.062   0.062   0.167 0.68481   
+Residuals       53 19.877   0.375                   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+brome2<-subset(brome, above >0) # above ground biomass 
+mass<-aov(log(above)~micro*exclosure, data=brome2) # log transform to normalize 
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(log(above)~micro*exclosure, data=brome2) #homogenous 
+                Df Sum Sq Mean Sq F value Pr(>F)   
+micro            1  3.839   3.839  10.804 0.0018 **
+exclosure        1  0.514   0.514   1.445 0.2347   
+micro:exclosure  1  0.054   0.054   0.152 0.6984   
+Residuals       53 18.834   0.355                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+brome3<-subset(brome, below >0) # below ground biomass 
+mass<-aov(log(below)~micro*exclosure, data=brome3) # log transform to normalize 
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(log(below)~micro*exclosure, data=brome3) # homogenous 
+                Df Sum Sq Mean Sq F value Pr(>F)
+micro            1   1.73  1.7346   2.171  0.147
+exclosure        1   0.18  0.1813   0.227  0.636
+micro:exclosure  1   0.02  0.0234   0.029  0.865
+Residuals       51  40.74  0.7989       
+
+## Erodium
+erod1<-subset(erod, both >0) # total biomass
+mass<-aov(log(both)~micro*exclosure, data=erod1) # log transform to normalize
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(log(both)~micro*exclosure, data=erod1)# homogenous 
+                Df Sum Sq Mean Sq F value Pr(>F)
+micro            1   0.59  0.5863   0.636  0.430
+exclosure        1   0.75  0.7516   0.816  0.373
+micro:exclosure  1   2.24  2.2395   2.431  0.128
+Residuals       35  32.24  0.9212    
+
+erod2<-subset(erod, above >0) # above ground biomass
+mass<-aov(log(above)~micro*exclosure, data=erod2) # log transform to normalize 
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(log(above)~micro*exclosure, data=erod2) # homogenous 
+                Df Sum Sq Mean Sq F value Pr(>F)
+micro            1   0.50  0.4950   0.518  0.476
+exclosure        1   0.77  0.7709   0.807  0.375
+micro:exclosure  1   1.97  1.9694   2.060  0.160
+Residuals       35  33.45  0.9558   
+
+erod3<-subset(erod, below >0) # below ground biomass 
+mass<-aov(log(below)~micro*exclosure, data=erod3) # log transform to normalize 
+summary(mass)
+shapiro.test(mass$residuals)
+leveneTest(log(below)~micro*exclosure, data=erod3) #homogenous 
+                Df Sum Sq Mean
+				Sq F value Pr(>F)  
+micro            1   0.55   0.552   0.498 0.4855  
+exclosure        1   0.00   0.000   0.000 0.9948  
+micro:exclosure  1   3.21   3.212   2.899 0.0983 .
+Residuals       32  35.46   1.108                 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+## abundance
+
+
+##Amsinckia
+numbers<-glm.nb(abundance~micro*exclosure*removal, data=amsk) ## over dispersed with poisson so used negative binomial  distribution(residual deviance >x2 DF) 
+summary(numbers)
+anova(numbers, test="Chisq")
+
+                        Df Deviance Resid. Df Resid. Dev Pr(>Chi)   
+NULL                                      119    110.529            
+micro                    1   1.1058       118    109.424 0.292990   
+exclosure                1   4.2733       117    105.150 0.038715 * 
+removal                  1   1.7715       116    103.379 0.183191   
+micro:exclosure          1   0.0830       115    103.296 0.773323   
+micro:removal            1   1.6661       114    101.630 0.196782   
+exclosure:removal        1   7.2101       113     94.420 0.007249 **
+micro:exclosure:removal  1   0.4475       112     93.972 0.503507   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+## Caulanthus
+numbers<-glm.nb(abundance~micro*exclosure*removal, data=caul)
+summary(numbers)
+anova(numbers, test="Chisq")
+
+                        Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                                      119    121.517              
+micro                    1    0.705       118    120.812   0.40109    
+exclosure                1    1.131       117    119.681   0.28763    
+removal                  1   32.390       116     87.291 1.261e-08 ***
+micro:exclosure          1    1.042       115     86.249   0.30733    
+micro:removal            1    0.058       114     86.191   0.81027    
+exclosure:removal        1    3.637       113     82.554   0.05651 .  
+micro:exclosure:removal  1    0.000       112     82.554   0.99956    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+## Lipidium
+numbers<-glm.nb(abundance~micro*exclosure*removal, data=lepi)
+summary(numbers)
+anova(numbers, test="Chisq")
+                        Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                                      119    114.668              
+micro                    1   3.8689       118    110.799   0.04919 *  
+exclosure                1  24.7369       117     86.062 6.571e-07 ***
+removal                  1   0.0001       116     86.062   0.99283    
+micro:exclosure          1   0.8789       115     85.183   0.34849    
+micro:removal            1   0.1341       114     85.049   0.71424    
+exclosure:removal        1   0.0401       113     85.009   0.84136    
+micro:exclosure:removal  1   0.2175       112     84.791   0.64096    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+## Monolopia
+numbers<-glm.nb(abundance~micro*exclosure*removal, data=mono)
+summary(numbers)
+anova(numbers)
+                       Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                                      119    151.773              
+micro                    1    8.834       118    142.939 0.0029564 ** 
+exclosure                1   57.533       117     85.406 3.323e-14 ***
+removal                  1    2.561       116     82.845 0.1095308    
+micro:exclosure          1    1.555       115     81.290 0.2124521    
+micro:removal            1    7.429       114     73.861 0.0064189 ** 
+exclosure:removal        1   13.874       113     59.987 0.0001954 ***
+micro:exclosure:removal  1    0.000       112     59.987 0.9997252    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+## Phacelia 
+numbers<-glm.nb(abundance~micro*exclosure*removal, data=phac)
+summary(numbers)
+anova(numbers, test="Chisq")
+                        Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                                      119     150.37              
+micro                    1    0.004       118     150.36    0.9486    
+exclosure                1   31.633       117     118.73 1.862e-08 ***
+removal                  1    0.143       116     118.59    0.7056    
+micro:exclosure          1    0.959       115     117.63    0.3274    
+micro:removal            1    0.050       114     117.58    0.8231    
+exclosure:removal        1    0.028       113     117.55    0.8661    
+micro:exclosure:removal  1    0.024       112     117.53    0.8767    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+## brome
+numbers<-glm.nb(abundance~micro*exclosure, data=br)
+summary(numbers)
+anova(numbers, test="Chisq")
+                Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                               61     85.799              
+micro            1  10.9039        60     74.895 0.0009596 ***
+exclosure        1   0.0118        59     74.883 0.9135787    
+micro:exclosure  1   1.0902        58     73.793 0.2964316 
+
+## erodium 
+numbers<-glm.nb(abundance~micro*exclosure, data=er) ##overdispersed 
+summary(numbers)
+anova(numbers, test="Chisq")  
+
+                Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                               61    180.502              
+micro            1   84.906        60     95.596 < 2.2e-16 ***
+exclosure        1    5.120        59     90.476 0.0236512 *  
+micro:exclosure  1   13.973        58     76.503 0.0001855 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+
+## average number of flowers per individuals
+
+
+## Amsinckia
+flour<-subset(amsk, flowersavg>0) #only including plots with flowers
+petal<-aov(flowersavg~micro*exclosure*removal, data=flour)
+summary(petal)
+shapiro.test(petal$residuals)#normal 
+leveneTest(flowersavg~micro*exclosure*removal, data=flour) # homogenous 
+                   Df Sum Sq Mean Sq F value Pr(>F)
+micro                    1   22.3   22.31   1.345  0.254
+exclosure                1   36.5   36.49   2.199  0.147
+removal                  1    9.6    9.62   0.580  0.452
+micro:exclosure          1    0.0    0.04   0.002  0.962
+micro:removal            1   31.8   31.79   1.916  0.175
+exclosure:removal        1    4.3    4.27   0.257  0.615
+micro:exclosure:removal  1    4.7    4.74   0.286  0.596
+Residuals               35  580.6   16.59 
+
+## Caulanthus
+flour<-subset(caul, flowersavg>0)
+petal<-aov(flowersavg~micro*exclosure*removal, data=flour)
+summary(petal)
+shapiro.test(petal$residuals) # normal
+leveneTest(flowersavg~micro*exclosure*removal, data=flour) # homogenous 
+                  Df Sum Sq Mean Sq F value Pr(>F)  
+micro              1   0.56    0.56   0.041 0.8414  
+exclosure          1  84.12   84.12   6.205 0.0204 *
+removal            1  16.53   16.53   1.219 0.2809  
+micro:exclosure    1   2.48    2.48   0.183 0.6729  
+micro:removal      1   0.64    0.64   0.047 0.8305  
+exclosure:removal  1  25.50   25.50   1.881 0.1835  
+Residuals         23 311.79   13.56      
+
+##Lipidium
+flour<-subset(lepi, flowersavg>0)
+petal<-aov(flowersavg~micro*exclosure*removal, data=flour)
+summary(petal)
+shapiro.test(petal$residuals) # normal 
+leveneTest(flowersavg~micro*exclosure*removal, data=flour)#homogenous 
+            Df Sum Sq Mean Sq F value Pr(>F)
+micro        1  6.848   6.848   7.396  0.113
+exclosure    1  7.837   7.837   8.464  0.101
+removal      1  0.889   0.889   0.960  0.431
+Residuals    2  1.852   0.926    
+## due to unbalanced design from low numbers of individuals flowering, interactions could not be calculated 
+
+## Monolopia
+flour<-subset(mono, flowersavg>0)
+petal<-aov(log(flowersavg)~micro*exclosure*removal, data=flour)
+summary(petal)         
+shapiro.test(petal$residuals) #normal 
+leveneTest(log(flowersavg)~micro*exclosure*removal, data=flour) # log transform to meet assumption of homogeniety of variances 
+                Df Sum Sq Mean Sq F value Pr(>F)  
+micro            1  1.185  1.1852   3.682 0.0687 .
+exclosure        1  0.036  0.0363   0.113 0.7403  
+removal          1  0.513  0.5127   1.593 0.2207  
+micro:exclosure  1  0.592  0.5925   1.841 0.1893  
+micro:removal    1  0.099  0.0992   0.308 0.5846  
+Residuals       21  6.759  0.3219                 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+## Phacelia
+flour<-subset(phac, flowersavg>0)
+petal<-aov(sqrt(flowersavg)~micro*exclosure*removal, data=flour) #sqrt tranform to normalize
+summary(petal)
+leveneTest(sqrt(flowersavg)~micro*exclosure*removal, data=flour) # homogenous 
+shapiro.test(petal$residuals)
+ #normal after transformation 
+                        Df Sum Sq Mean Sq F value   Pr(>F)    
+micro                    1  27.97   27.97   9.959  0.00279 ** 
+exclosure                1  52.00   52.00  18.514 8.48e-05 ***
+removal                  1   4.25    4.25   1.515  0.22455    
+micro:exclosure          1   1.02    1.02   0.364  0.54933    
+micro:removal            1   0.50    0.50   0.178  0.67496    
+exclosure:removal        1   4.48    4.48   1.594  0.21294    
+micro:exclosure:removal  1   0.16    0.16   0.056  0.81399    
+Residuals               47 132.02    2.81                     
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+# brome - seed not flowers 
+flour<-subset(brome, flowersavg>0)
+petal<-aov(sqrt(flowersavg)~micro*exclosure, data=flour) #could not normalize, square root transformation was the closest to normal 
+summary(petal)
+shapiro.test(petal$residuals)
+leveneTest(sqrt(flowersavg)^3~micro*exclosure, data=flour) # homogenous 
+
+                Df Sum Sq Mean Sq F value Pr(>F)
+micro            1  0.001  0.0014   0.006  0.937
+exclosure        1  0.032  0.0320   0.144  0.706
+micro:exclosure  1  0.451  0.4505   2.020  0.161
+Residuals       55 12.269  0.2231        
+
+#erodium
+flour<-subset(erod, flowersavg>0)
+petal<-aov(log(flowersavg)~micro*exclosure, data=flour) # log transform to normalize 
+summary(petal)
+shapiro.test(petal$residuals)
+leveneTest(log(flowersavg)~micro*exclosure, data=flour) # homogenous 
+                Df Sum Sq Mean Sq F value  Pr(>F)   
+micro            1  2.699  2.6992   8.024 0.00751 **
+exclosure        1  0.034  0.0340   0.101 0.75229   
+micro:exclosure  1  0.000  0.0004   0.001 0.97118   
+Residuals       36 12.110  0.3364      
+
+
+
+## comparing responses between native and non-native status
+## determine if performance of non-natives decreases with the presence of natives
+
+#biomass
+##above ground biomass
+mass<-subset(data, above>0)
+m1<-aov(log(above)~status*seed*removal*micro, data=mass)
+shapiro.test(m1$residuals)
+leveneTest(log(above)~status*seed*removal*micro, data=mass) ## could not achieve homogeniety of variances 
+lsmeans(m1, pairwise~status*seed*removal*micro, data=mass)
+contrast                                                     estimate           SE df       z.ratio p.value
+native,seed,present - native,seed,removal               -0.518641094 0.1944224 303  -2.668  0.1367	## comparing natives with non-natives present to natives alone 
+non-native,control,present - non-native,seed,present    -0.003935641 0.3287334 303  -0.012  1.0000	## comparing non-natives  with no natives to non-natives with natives
+native,seed,present,shrub - native,seed,removal,shrub                0.05204877 0.2700754 299   0.193  1.0000
+native,seed,present,open - native,seed,removal,open                 -0.82427667 0.2531517 299  -3.256  0.0899
+non-native,control,present,shrub - non-native,seed,present,shrub    -0.11499786 0.4836153 299  -0.238  1.0000
+non-native,control,present,open - non-native,seed,present,open       0.07413992 0.4057943 299   0.183  1.0000
+
+##below ground biomass
+mass<-subset(data, below>0)
+m1<-aov(log(below)~status*seed*removal*micro, data=mass)
+shapiro.test(m1$residuals) # normal 
+leveneTest(log(below)~status*seed*removal*micro, data=mass) ## homogenous
+lsmeans(m1, pairwise~status*seed*removal*micro, data=mass
+contrast                                                     estimate           SE df       z.ratio p.value
+native,seed,present - native,seed,removal               -0.43206645 0.1831265 279  -2.359  0.2658
+non-native,control,present - non-native,seed,present     0.15580785 0.2985942 279   0.522  0.9995
+native,seed,present,shrub - native,seed,removal,shrub                0.050560345 0.2694344 275   0.188  1.0000
+native,seed,present,open - native,seed,removal,open                 -0.663760570 0.2367981 275  -2.803  0.2737
+non-native,control,present,shrub - non-native,seed,present,shrub    -0.362943675 0.4486098 275  -0.809  1.0000
+non-native,control,present,open - native,seed,present,open           0.619389703 0.3664298 275   1.690  0.9479
+
+
+##abundance
+m1<-glm.nb(abundance~status*seed*removal*micro, data=data) # overdispersed 
+summary(m1)
+anova(m1)
+lsmeans(m1, pairwise~status+seed+removal*micro, adjust="tukey") ## only interested in looking at three way comparisons 
+contrast                                                     estimate           SE df       z.ratio p.value
+native,seed,present - native,seed,removal               -3.935701e-01    0.1957316 NA -2.010764e+00  0.4744 ## comparing natives with non-natives present to natives alone 
+non-native,control,present - non-native,seed,present     6.948167e-03    0.4088624 NA  1.699390e-02  1.0000 ## comparing non-natives  with no natives to non-natives with natives 
+native,seed,present,shrub - native,seed,removal,shrub               -5.932363e-01    0.2763348 NA -2.146802e+00  0.7345
+native,seed,present,open - non-native,control,removal,open           2.318834e+01 6039.6821847 NA  3.839331e-03  1.0000
+non-native,control,present,open - non-native,seed,present,open       3.208804e-03    0.5751025 NA  5.579534e-03  1.0000
+non-native,control,present,shrub - non-native,seed,present,shrub     1.144919e-02    0.5754131 NA  1.989734e-02  1.0000
+ 
+ 
+#flowers
+flour<-subset(data, flowersavg>0)
+m4<-aov(log(flowersavg)~status*seed*removal*micro, data=flour) ## cannot normalize or achieve homogeneity of variances 
+anova(m4)
+shapiro.test(m4$residuals)
+leveneTest(log(flowersavg)~status*seed*removal*micro, data=flour)
+lsmeans(m4, pairwise~status+seed+removal*micro, adjust="tukey")
+native,seed,present - native,seed,removal               -1.09851467  2.134319 255  -0.515  0.9996
+non-native,control,present - native,seed,present        -6.04531085  3.071071 255  -1.968  0.5053
+native,seed,present,shrub - native,seed,removal,shrub                 2.603758170  2.983187 251   0.873  1.0000
+native,seed,present,open - native,seed,removal,open                  -3.910256411  3.013813 251  -1.297  0.9957
+non-native,control,present,open - non-native,seed,present,open        0.101744186  3.897314 251   0.026  1.0000
+non-native,control,present,shrub - non-native,seed,present,shrub     -0.366666667  4.859628 251  -0.075  1.0000
+
+
+
+## diversity estimates 
+
+
+##richness
+test <- subset(data, abundance>0) # remove species that have 0 values
+
+richness <- aggregate(test$abundance, by=list(test$number,test$exclosure,test$micro,test$removal), length) #sum the number of species per plot
+colnames(richness) <- c("number","exclosure","micro","removal","richness") #rename columns
+
+rich<-glm(richness~micro*exclosure*removal, family=poisson, data=richness)
+summary(rich)
+anova(rich, test="Chisq")
+                        Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                                       97     74.099              
+micro                    1   4.0847        96     70.015 0.0432738 *  
+exclosure                1  12.2769        95     57.738 0.0004586 ***
+removal                  1   0.4858        94     57.252 0.4857853    
+micro:exclosure          1   2.6021        93     54.650 0.1067199    
+micro:removal            1   1.3207        92     53.329 0.2504710    
+exclosure:removal        1   1.6049        91     51.724 0.2052160    
+micro:exclosure:removal  1   3.2524        90     48.472 0.0713191 . 
+#shrub mean = 2.86, open mean = 3.60
+#shrub SD= 1.39, open SD= 1.66 shrub SE=0.19, open SE= 0.24
+
+##Simpson's diversity
+total.abd <- aggregate(data$abundance, by=list(data$number), sum) #sum total species in each plot
+t1 <- rbind(total.abd,total.abd,total.abd,total.abd,total.abd,total.abd,total.abd,total.abd,total.abd,total.abd,total.abd,total.abd,total.abd,total.abd) #duplicate to match original dataset
+t2 <- t1[order(t1[,1]),] #order the sequence as plots
+
+data2 <- data #rename data
+data2["simp"] <- (data2$abundance/t2[,2])^2 #divide each species abundance by total plot abundance
+
+simpson <- aggregate(data2$simp, by=list(data2$number,data2$exclosure,data2$micro,data2$removal), sum) #sum each species value
+simpson["simp.index"] <- 1-simpson[,5] # calculate index
+colnames(simpson) <- c("number","exclosure","micro","removal","Simpson index","diversity") #rename columns
+
+div<-glm(diversity~micro*exclosure*removal, family=binomial, data=simpson)
+summary(div)
+anova(div, test="Chisq")
+
+                        Df Deviance Resid. Df Resid. Dev Pr(>Chi)
+NULL                                      101     19.631         
+micro                    1  1.83500       100     17.796   0.1755
+exclosure                1  1.57061        99     16.226   0.2101
+removal                  1  0.14529        98     16.081   0.7031
+micro:exclosure          1  2.27673        97     13.804   0.1313
+micro:removal            1  1.02778        96     12.776   0.3107
+exclosure:removal        1  0.02798        95     12.748   0.8671
+micro:exclosure:removal  1  1.08412        94     11.664   0.2978
+
+
+
+## environmental variables
+
+
+## soil moisture
+##soil moisture 
+cold<-(data$moist1/100) ## converting % soil mositure to proporions 
+warm<-(data$moist2/100)
+
+jan<-glm(cold~micro*exclosure+removal, family=binomial, data=data) ## first soil moisture reading (moist1) took place in January 
+summary(jan)
+anova(jan, test="Chisq")
+                Df Deviance Resid. Df Resid. Dev Pr(>Chi)
+NULL                              839     7.5562         
+micro            1 0.000000       838     7.5562   1.0000
+exclosure        1 0.073787       837     7.4824   0.7859
+removal          1 0.026934       836     7.4554   0.8696
+micro:exclosure  1 0.000000       835     7.4554   1.0000
+
+march<-glm(warm~micro*exclosure+removal, family=binomial, data=data) ## second soil moisture reading (moist2) took place in march 
+summary(march)
+anova(march, test="Chisq")
+                Df Deviance Resid. Df Resid. Dev Pr(>Chi)
+NULL                              839     14.572         
+micro            1  1.55308       838     13.019   0.2127
+exclosure        1  0.11801       837     12.901   0.7312
+removal          1  0.02444       836     12.876   0.8758
+micro:exclosure  1  0.25629       835     12.620   0.6127
+
+march2<-glm(warm~micro*exclosure+removal+moist1, family=binomial, data=data) ## second soil moisture reading with moist1 as a covariate 
+summary(march2)
+anova(march2, test="Chisq")
+                Df Deviance Resid. Df Resid. Dev Pr(>Chi)
+NULL                              839     14.572         
+micro            1  1.55308       838     13.019   0.2127
+exclosure        1  0.11801       837     12.901   0.7312
+removal          1  0.02444       836     12.876   0.8758
+moist1           1  2.05712       835     10.819   0.1515
+micro:exclosure  1  0.25652       834     10.562   0.6125
+
+##HOBO data
+growing<-subset(data2, month %in% c("November", "December", "January", "February", "March", "April")) ## subsetting data by time periods 
+early<-subset(growing, month %in% c("November", "December", "January")) ## early growing season 
+late<-subset(growing, month %in% c("February", "March", "April")) ## late growing season 
+
+fhour<-factor(hour)
+is.factor(fhour) ## treat hour as a factor not a number 
+
+time1<-subset(early, fhour %in% c("12", "13", "14")) ## subsetting data by mid-day where there is the greatest variation in temp/RH
+time2<-subset(late, fhour %in% c("12", "13", "14"))
+timeall<-subset(growing, fhour %in% c("12", "13", "14"))
+
+#temperature 
+#entire growing season
+growth<-t.test(temp~micro, data=timeall) 
+growth
+        Welch Two Sample t-test
+
+data:  temp by micro
+t = 2.4796, df = 2373, p-value = 0.01322
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ 0.1170484 1.0021583
+sample estimates:
+ mean in group open mean in group shrub 
+           7.142491            6.582888 ## s = 0.05, o=0.08
+		   
+#early season
+bird<-t.test(temp~micro, data=time1)
+bird
+        Welch Two Sample t-test
+
+data:  temp by micro
+t = -3.8787, df = 1594.3, p-value = 0.0001093
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ -1.3658282 -0.4483821
+sample estimates:
+ mean in group open mean in group shrub ## s=0.06, o = 0.08
+           4.320537            5.227643 
+
+#late season
+hot<-t.test(temp~micro, data=time2)
+hot
+        Welch Two Sample t-test
+
+data:  temp by micro
+t = 3.0987, df = 1091.4, p-value = 0.001994
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ 0.3900262 1.7367230
+sample estimates:
+ mean in group open mean in group shrub ## s= 0.07, o = 0.13
+           12.71603            11.65265 
+##variation in temperature 
+
+#entire growing season 
+growing2 <- na.omit(growing)
+variation <-aggregate(growing[,"temp"], by=list(micro=growing[,"micro"],removal=growing[,"removal"],julian.date=growing[,"julian.date"]), var)
+m1<-t.test(x~micro, data=variation)
+m1
+    Welch Two Sample t-test
+
+data:  x by micro
+t = 6.8075, df = 447.48, p-value = 3.206e-11
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ 15.56995 28.20854
+sample estimates:
+ mean in group open mean in group shrub  ## s = 2.85, o = 1.48
+           51.71955            29.83031 
+
+#early variation 
+variation <-aggregate(early[,"temp"], by=list(micro=early[,"micro"],removal=early[,"removal"],julian.date=early[,"julian.date"]), var)
+m2<-t.test(x~micro, data=variation)
+m2
+        Welch Two Sample t-test
+
+data:  x by micro
+t = 2.0127, df = 341.78, p-value = 0.04493
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ 0.1146879 9.9752682
+sample estimates:
+ mean in group open mean in group shrub 
+           33.75664            28.71166  ## s = 1.87, o = 1.67
+
+#late variation 
+variation <-aggregate(late[,"temp"], by=list(micro=late[,"micro"],removal=late[,"removal"],julian.date=late[,"julian.date"]), var)
+m3<-t.test(x~micro, data=variation)
+m3
+    Welch Two Sample t-test
+
+data:  x by micro
+t = 7.2325, df = 172.18, p-value = 1.49e-11
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ 32.13675 56.26197
+sample estimates:
+ mean in group open mean in group shrub 
+           75.57654            31.37718  ## s = 1.87, o = 5.62
+#humidity
+
+data2[,"humidity"] <-(data2$RH/100)
+#entire growing season
+m1<-glm(humidity~micro, family=binomial, data=timeall)
+anova(m1, test="Chisq")
+
+      Df Deviance Resid. Df Resid. Dev Pr(>Chi)    
+NULL                   2692     399.44             
+micro  1   19.455      2691     379.99 1.03e-05 ***
+
+sample estimates:
+ mean in group open mean in group shrub 
+           89.42510            81.61469  ## s = 0.15, o = 0.14
+
+#early season
+bird<-glm(humidity~micro, family=binomial, data=time1)
+anova(bird, test="Chisq") 
+      Df Deviance Resid. Df Resid. Dev Pr(>Chi)   
+NULL                   1620     164.81            
+micro  1   9.2762      1619     155.53 0.002322 ** ## s = 0.16, o = 0.19
+
+ mean in group open mean in group shrub 
+           91.74474            83.65288 
+#late season
+hot<-glm(humidity~micro, family=binomial, data=time2)
+anova(hot, test="Chisq")
+      Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                   1067     250.81              
+micro  1   21.086      1066     229.72 4.392e-06 *** 
+---
+sample estimates:
+ mean in group open mean in group shrub 
+           86.99726            80.03286   ## s se = 0.27, o=0.25
+
+##variation
+
+#entire growing season 
+growing2 <- na.omit(timeall)
+variation <-aggregate(growing2[,"RH"], by=list(micro=growing2[,"micro"],julian.date=growing2[,"julian.date"]), var)
+growth<-t.test(x~micro, data=variation)
+growth
+data:  x by micro
+t = -4.2769, df = 252.75, p-value = 2.689e-05
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ -143.5853  -53.0440
+sample estimates:
+ mean in group open mean in group shrub 
+           85.79294           184.10761 ## s = 3.20, o = 2.80 
+  
+		   
+#early variation 
+early2<- na.omit(time1)
+variation <-aggregate(early2[,"RH"], by=list(micro=early2[,"micro"],julian.date=early2[,"julian.date"]), var)
+growth<-t.test(x~micro, data=variation)
+growth
+     Welch Two Sample t-test
+
+data:  x by micro
+t = -2.1832, df = 146.19, p-value = 0.03062
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ -84.007740  -4.177728
+sample estimates:
+ mean in group open mean in group shrub 
+           47.75922            91.85195  ## SE s = 1.99, o = 2.10
+
+		  
+
+#late variation 
+late2 <- na.omit(time2)
+variation <-aggregate(late2[,"RH"], by=list(micro=late2[,"micro"],julian.date=late2[,"julian.date"]), var)
+growth<-t.test(x~micro, data=variation)
+growth
+
+       Welch Two Sample t-test
+
+data:  x by micro
+t = -9.2145, df = 72.85, p-value = 7.52e-14
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ -491.7399 -316.8451
+sample estimates:
+ mean in group open mean in group shrub 
+           52.43363           456.72613 ## se s = 5.89 o = 2.26
+		   
+		   
+		   
+## RII calculations
+## function
+##permutation RII
+perm.rii <- function(x, treatment, control.var, treat.var, variable,perm){
+s1 <- subset(x, x[,treatment] == treat.var, select=variable) ## subset the treatment group
+o1 <- subset(x, x[,treatment] == control.var, select=variable)  ## subset the control group
+min.samp <- min(length(s1[,1]),length(o1[,1]))  ## minimum number of samples
+rii.avg.total <- c() ## set up blank mean vector
+rii.se.total <- c() ## set up blank mean vector
+for (i in 1:perm){ ##loop the sampling of treatment and control groups and calculate RII
+set.seed(i) ## control randomization to return same values
+treat.samp<- sample(s1[,variable],min.samp)
+control.samp<-sample(o1[,variable],min.samp)
+return1 <- (treat.samp - control.samp) / (treat.samp+control.samp)
+rii.avg <- mean(return1)
+rii.se <- se(return1)
+rii.avg.total <- c(rii.avg.total,rii.avg) ## bind all the means together
+rii.se.total <- c(rii.se.total,rii.se) ## bind all the confidence intervals together
+}
+rii.avg <- mean(rii.avg.total)
+rii.se <- mean(rii.se.total)
+treat <- c(treatment)
+rii.results <- data.frame(factor=treat,average=rii.avg,error=rii.se)
+return(rii.results)
+}
+
+perm.rii.abd <- function(x, treatment, control.var, treat.var, variable,perm){
+s1 <- subset(x, x[,treatment] == treat.var, select=variable) ## subset the treatment group
+o1 <- subset(x, x[,treatment] == control.var, select=variable)  ## subset the control group
+min.samp <- min(length(s1[,1]),length(o1[,1]))  ## minimum number of samples
+rii.avg.total <- c() ## set up blank mean vector
+rii.se.total <- c() ## set up blank mean vector
+for (i in 1:perm){ ##loop the sampling of treatment and control groups and calculate RII
+set.seed(i) ## control randomization to return same values
+treat.samp<- sample(s1[,variable],min.samp)
+control.samp<-sample(o1[,variable],min.samp)
+return1 <- (treat.samp - control.samp) / (treat.samp+control.samp)
+return1[is.na(return1)] <- 0
+rii.avg <- mean(return1)
+rii.se <- se(return1)
+rii.avg.total <- c(rii.avg.total,rii.avg) ## bind all the means together
+rii.se.total <- c(rii.se.total,rii.se) ## bind all the confidence intervals together
+}
+rii.avg <- mean(rii.avg.total)
+rii.se <- mean(rii.se.total)
+treat <- c(treatment)
+rii.results <- data.frame(factor=treat,average=rii.avg,error=rii.se)
+return(rii.results)
+}
+
+
+## function for standard error
+se <- function(x) sqrt(var(x)/length(x))
+mean <- function(x) sum(x)/length(x)
+
+## biomass 
+
+## above ground biomass
+aboverii<- subset(data, above>0& status=="native" & seed=="seed") ## subsetting the data to above ground biomass
+overall.ex <- perm.rii(aboverii, "exclosure", "no exclosure","exclosure", "above", 999) ## bootstrapped RII by exclosure 
+overall.micro <- perm.rii(aboverii, "micro", "open","shrub", "above", 999)
+overall.removal <- perm.rii(aboverii, "removal", "present","removal", "above", 999)
+
+overall.results <- rbind(overall.micro, overall.ex, overall.removal) # combining into one data frame 
+overall.results[,"error"] <-overall.results[,"error"]*1.96 ## calculating 95% confidence intervals 
+
+
+rma.uni(overall.results[,"average"], sei=overall.results[,"error"]) ## heterogeniety tests 
+## not significantly different 
+
+## figure for above ground biomass RII c
+error.bar <- function(x, y, upper, lower=upper, length=0.05,...){ ## calculating error bars 
+if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
+stop("vectors must be same length")
+arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+}
+
+par(mar=c(4.5,4.5,1,0)) ## change margins
+par(mfrow=c(1, 3))	## makes graphs into panel style with one row and 3 columns
+plot(seq(1,3,1), overall.results[,"average"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.2,0.6), ylab="RII", xaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
+error.bar(seq(1,3,1), overall.results[,"average"],overall.results[,"error"], lwd=2) # adding error bars 
+axis(1, seq(1,3,1), c("microsite","exclosure","removal"), cex.axis=2) # axis labels 
+abline(h=0, lty=2, lwd=2) # line at zero for RII 
+text(2.4, 0.6, "above-ground biomass", cex=2)
+
+# below ground biomass 
+belowrii<- subset(data, below>0 & status=="native" & seed=="seed") ## subsetting the data to below ground biomass
+overall.ex <- perm.rii(belowrii, "exclosure", "no exclosure","exclosure", "below", 999) ## bootstrapped RII by exclosure 
+overall.micro <- perm.rii(belowrii, "micro", "open","shrub", "below", 999)
+overall.removal <- perm.rii(belowrii, "removal", "present","removal", "below", 999)
+
+overall.results <- rbind(overall.micro, overall.ex, overall.removal) # combining into one data frame 
+overall.results[,"error"] <-overall.results[,"error"]*1.96 ## calculating 95% confidence intervals 
+
+
+rma.uni(overall.results[,"average"], sei=overall.results[,"error"]) ## heterogeniety tests 
+## not significantly different 
+
+## figure for below ground biomass  RII 
+error.bar <- function(x, y, upper, lower=upper, length=0.05,...){ ## calculating error bars 
+if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
+stop("vectors must be same length")
+arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+}
+
+par(mar=c(4.5,2.5,1,1)) ## change margins	
+x<-c(-0.2, 0, 0.2, 0.4, 0.6)
+plot(seq(1,3,1), overall.results[,"average"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.2,0.6), ylab="", xaxt="n", yaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
+axis(2, at=x, labels=FALSE) 
+error.bar(seq(1,3,1), overall.results[,"average"],overall.results[,"error"], lwd=2) # adding error bars 
+axis(1, seq(1,3,1), c("microsite","exclosure","removal"), cex.axis=2) # axis labels 
+abline(h=0, lty=2, lwd=2) # line at zero for RII 
+text(2.4, 0.6, "below-ground biomass", cex=2)
+
+
+## abundance 
+abundancerii<-subset(data, status=="native" & seed=="seed")
+overall.ex <- perm.rii.abd(abundancerii, "exclosure", "no exclosure","exclosure", "abundance", 999) ## bootstrapped RII by exclosure 
+overall.micro <- perm.rii.abd(abundancerii, "micro", "open","shrub", "abundance", 999)
+overall.removal <- perm.rii.abd(abundancerii, "removal", "present","removal", "abundance", 999)
+
+overall.results <- rbind(overall.micro, overall.ex, overall.removal) # combining into one data frame 
+overall.results[,"error"] <-overall.results[,"error"]*1.96 ## calculating 95% confidence intervals 
+
+
+rma.uni(overall.results[,"average"], sei=overall.results[,"error"]) ## heterogeniety tests 
+## not significantly different 
+
+## figure for abundance RII 
+error.bar <- function(x, y, upper, lower=upper, length=0.05,...){ ## calculating error bars 
+if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
+stop("vectors must be same length")
+arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+}
+
+par(mar=c(4.5,1.5,1,3)) ## change margins
+x<-c(-0.2, 0, 0.2, 0.4, 0.6)
+plot(seq(1,3,1), overall.results[,"average"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.2,0.6), ylab="", xaxt="n", yaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2)
+axis(2, at=x, labels=FALSE) 
+error.bar(seq(1,3,1), overall.results[,"average"],overall.results[,"error"], lwd=2) # adding error bars 
+axis(1, seq(1,3,1), c("microsite","exclosure","removal"), cex.axis=2) # axis labels 
+abline(h=0, lty=2, lwd=2) # line at zero for RII 
+text(2.8, 0.6, "abundance", cex=2)
+
+
+## avg number of flower 
+flowerrii<-subset(data, flowersavg>0 & status=="native" & seed=="seed")
+overall.ex <- perm.rii(flowerrii, "exclosure", "no exclosure","exclosure", "flowersavg", 999) ## bootstrapped RII by exclosure 
+overall.micro <- perm.rii(flowerrii, "micro", "open","shrub", "flowersavg", 999)
+overall.removal <- perm.rii(flowerrii, "removal", "present","removal", "flowersavg", 999)
+
+overall.results <- rbind(overall.micro, overall.ex, overall.removal) # combining into one data frame 
+overall.results[,"error"] <-overall.results[,"error"]*1.96 ## calculating 95% confidence intervals 
+
+
+rma.uni(overall.results[,"average"], sei=overall.results[,"error"]) ## heterogeniety tests 
+## not significantly different 
+
+## figure for flowersavg RII 
+error.bar <- function(x, y, upper, lower=upper, length=0.05,...){ ## calculating error bars 
+if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
+stop("vectors must be same length")
+arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+}
+
+par(mar=c(4.5,4.5,1,1)) ## change margins	
+plot(seq(1,3,1), overall.results[,"average"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.2,0.6), ylab="RII mean number of flowers", xaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
+error.bar(seq(1,3,1), overall.results[,"average"],overall.results[,"error"], lwd=2) # adding error bars 
+axis(1, seq(1,3,1), c("microsite","exclosure","removal"), cex.axis=2) # axis labels 
+abline(h=0, lty=2, lwd=2) # line at zero for RII
+
+
+
+## figures for raw data for above-ground biomass, below ground biomass, abundance, and average number of flowers and environmental data 
+
+## function for standard error
+se <- function(x) sqrt(var(x)/length(x))
+mean <- function(x) sum(x)/length(x)
+
+## error bar function
+error.bar <- function(x, y, upper, lower=upper, length=0.05,...){
+if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
+stop("vectors must be same length")
+arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+}
+
+pdf("biomass plots.pdf", width=16, height=10, useDingbats=F)
+## barplot for above ground biomass by microsite 
+nozeroz<-subset(data, above>0 & status=="native")
+species.avg <- aggregate(nozeroz$above, by=list(nozeroz$species,nozeroz$micro), mean)
+species.se <- aggregate(nozeroz$above, by=list(nozeroz$species,nozeroz$micro), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(shrub=species.avg[6:10,3],open=species.avg[1:5,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(shrub=species.avg[6:10,"se"],open=species.avg[1:5,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mfrow=c(2, 3))
+par(mar=c(1.5,4.5,2,0)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="mean above-ground biomass (g)", col=c("Grey45","White"), axis.lty=1, ylim=c(0,1.82), cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+#axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+#axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,1.8, c("shrub","open"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(8,0.15, "*", cex=2) #lipi sig
+text(11,0.35, "*", cex=2) #mono sig
+text(14,1.76, "***", cex=2) #phac sig
+
+## barplot for above ground biomass by exclosure 
+nozeroz<-subset(data, above>0 & status=="native")
+species.avg <- aggregate(nozeroz$above, by=list(nozeroz$species,nozeroz$exclosure), mean)
+species.se <- aggregate(nozeroz$above, by=list(nozeroz$species,nozeroz$exclosure), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(exclosure=species.avg[1:5,3],no.exclosure=species.avg[6:10,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(exclosure=species.avg[1:5,"se"],no.exclosure=species.avg[6:10,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(1.5,1,2,0)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="", col=c("Grey45","White"), axis.lty=1, ylim=c(0,1.82), yaxt='n', cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+x<-c(0, 0.5, 1.0, 1.5)
+box()
+axis(2, at=x, labels=FALSE)
+#axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+#axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,1.8, c("exclosure","no exclosure"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(5,0.65, "*", cex=2) #caul sig
+text(14, 1.4, "*", cex=2) #phac sig 
+
+## barplot for above ground biomass by removal
+nozeroz<-subset(data, above>0 & status=="native")
+species.avg <- aggregate(nozeroz$above, by=list(nozeroz$species,nozeroz$removal), mean)
+species.se <- aggregate(nozeroz$above, by=list(nozeroz$species,nozeroz$removal), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(removal=species.avg[6:10,3],present=species.avg[1:5,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(removal=species.avg[6:10,"se"],present=species.avg[1:5,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(1.5,1,2,.5)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="", col=c("Grey45","White"), axis.lty=1, ylim=c(0,1.82), yaxt='n', cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+x<-c(0, 0.5, 1.0, 1.5)
+axis(2, at=x, labels=FALSE)
+#axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+#axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,1.8, c("removal","present"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(2, 0.6,"*", cex=2) #amsk sig
+text(11, 0.33, "***", cex=2) #mono sig 
+
+
+
+## below ground biomass
+
+##by microsite 
+nozeroz<-subset(data, below>0 & status=="native")
+species.avg <- aggregate(nozeroz$below, by=list(nozeroz$species,nozeroz$micro), mean)
+species.se <- aggregate(nozeroz$below, by=list(nozeroz$species,nozeroz$micro), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(shrub=species.avg[6:10,3],open=species.avg[1:5,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(shrub=species.avg[6:10,"se"],open=species.avg[1:5,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(5,4.5,1,0)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="mean below-ground biomass (g)", col=c("Grey45","White"), axis.lty=1, ylim=c(0,0.14), cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,0.14, c("shrub","open"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(8,0.02, "***", cex=2) #lipi sig
+
+
+## barplot for below ground biomass by exclosure 
+nozeroz<-subset(data, below>0 & status=="native")
+species.avg <- aggregate(nozeroz$below, by=list(nozeroz$species,nozeroz$exclosure), mean)
+species.se <- aggregate(nozeroz$below, by=list(nozeroz$species,nozeroz$exclosure), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(exclosure=species.avg[1:5,3],no.exclosure=species.avg[6:10,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(exclosure=species.avg[1:5,"se"],no.exclosure=species.avg[6:10,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(5,1,1,0)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="", col=c("Grey45","White"), axis.lty=1, ylim=c(0,0.14), yaxt='n',cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+x<-c(2,0.02,0.04,0.06,0.08,0.1,0.12,0.14)
+axis(2, at=x, labels=FALSE)
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,0.14, c("exclosure","no exclosure"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(5,0.1, "*", cex=2) #caul sig
+
+
+## barplot for below ground biomass by removal
+nozeroz<-subset(data, below>0 & status=="native")
+species.avg <- aggregate(nozeroz$below, by=list(nozeroz$species,nozeroz$removal), mean)
+species.se <- aggregate(nozeroz$below, by=list(nozeroz$species,nozeroz$removal), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(removal=species.avg[6:10,3],present=species.avg[1:5,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(removal=species.avg[6:10,"se"],present=species.avg[1:5,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(5,1,1,.5)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="", col=c("Grey45","White"), axis.lty=1, ylim=c(0,0.14), yaxt='n', cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+x<-c(2,0.02,0.04,0.06,0.08,0.1,0.12,0.14)
+axis(2, at=x, labels=FALSE)
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,0.14, c("removal","present"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+dev.off()
+
+## abundance
+##by microsite 
+nozeroz<-subset(data, status=="native")
+species.avg <- aggregate(nozeroz$abundance, by=list(nozeroz$species,nozeroz$micro), mean)
+species.se <- aggregate(nozeroz$abundance, by=list(nozeroz$species,nozeroz$micro), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(shrub=species.avg[6:10,3],open=species.avg[1:5,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(shrub=species.avg[6:10,"se"],open=species.avg[1:5,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mfrow=c(1, 3))
+par(mar=c(5,4.5,1,0)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="mean abundance", col=c("Grey45","White"), axis.lty=1, ylim=c(0,30), cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,30, c("shrub","open"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(8,11, "*", cex=2) #lipi sig
+text(11,3, "**", cex=2) #mono sig
+
+
+
+## barplot for abundance by exclosure 
+nozeroz<-subset(data, status=="native")
+species.avg <- aggregate(nozeroz$abundance, by=list(nozeroz$species,nozeroz$exclosure), mean)
+species.se <- aggregate(nozeroz$abundance, by=list(nozeroz$species,nozeroz$exclosure), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(exclosure=species.avg[1:5,3],no.exclosure=species.avg[6:10,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(exclosure=species.avg[1:5,"se"],no.exclosure=species.avg[6:10,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(5,2,1,2)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="", col=c("Grey45","White"), axis.lty=1, ylim=c(0,30), yaxt='n', cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+x<-c(0,5,10,15,20,25,30)
+axis(2, at=x, labels=FALSE)
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,30, c("exclosure","no exclosure"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(2,3, "*", cex=2) #amsk sig
+text(8,15, "***", cex=2) #lipi sig
+text(11, 4.5, "***", cex=2) #mono sig 
+text(14, 29, "***", cex=2) # phac sig 
+
+
+## barplot for abundance by removal
+nozeroz<-subset(data, status=="native")
+species.avg <- aggregate(nozeroz$abundance, by=list(nozeroz$species,nozeroz$removal), mean)
+species.se <- aggregate(nozeroz$abundance, by=list(nozeroz$species,nozeroz$removal), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(removal=species.avg[6:10,3],present=species.avg[1:5,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(removal=species.avg[6:10,"se"],present=species.avg[1:5,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(5,0,1,4)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="", col=c("Grey45","White"), axis.lty=1, ylim=c(0,30), yaxt='n', cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+x<-c(0,5,10,15,20,25,30)
+axis(2, at=x, labels=FALSE)
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,30, c("removal","present"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(5, 8,"***", cex=2) #caul sig
+
+
+
+## average number of flowers 
+##by microsite 
+nozeroz<-subset(data, flowersavg>0 & status=="native")
+species.avg <- aggregate(nozeroz$flowersavg, by=list(nozeroz$species,nozeroz$micro), mean)
+species.se <- aggregate(nozeroz$flowersavg, by=list(nozeroz$species,nozeroz$micro), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(shrub=species.avg[6:10,3],open=species.avg[1:5,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(shrub=species.avg[6:10,"se"],open=species.avg[1:5,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mfrow=c(1,3))
+par(mar=c(5,4.5,1,1)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="mean number of flowers", col=c("Grey45","White"), axis.lty=1, ylim=c(0,40), cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,40, c("shrub","open"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(14,39, "**", cex=2) #phac sig
+
+
+
+## barplot for abundance by exclosure 
+nozeroz<-subset(data, flowersavg>0 & status=="native")
+species.avg <- aggregate(nozeroz$flowersavg, by=list(nozeroz$species,nozeroz$exclosure), mean)
+species.se <- aggregate(nozeroz$flowersavg, by=list(nozeroz$species,nozeroz$exclosure), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(exclosure=species.avg[1:5,3],no.exclosure=species.avg[6:10,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(exclosure=species.avg[1:5,"se"],no.exclosure=species.avg[6:10,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(5,0,1,1)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="", col=c("Grey45","White"), axis.lty=1, ylim=c(0,40), yaxt='n', cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+x<-c(0,10,20,30,40)
+axis(2, at=x, labels=FALSE)
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,40, c("exclosure","no exclosure"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+text(5,10, "*", cex=2) #caul sig
+text(14,37, "***", cex=2) #phac sig
+
+
+
+## barplot for abundance by removal
+nozeroz<-subset(data, flowersavg>0 & status=="native")
+species.avg <- aggregate(nozeroz$flowersavg, by=list(nozeroz$species,nozeroz$removal), mean)
+species.se <- aggregate(nozeroz$flowersavg, by=list(nozeroz$species,nozeroz$removal), se)
+
+species.avg[,"se"] <- species.se[,3]
+
+dat2 <- data.frame(removal=species.avg[6:10,3],present=species.avg[1:5,3])
+dat2 <- as.matrix(t(dat2))
+
+dat3 <- data.frame(removal=species.avg[6:10,"se"],present=species.avg[1:5,"se"])
+dat3 <- as.matrix(t(dat3))
+
+##make italic function
+make.italic <- function(x) as.expression(lapply(x, function(y) bquote(italic(.(y)))))
+
+par(mar=c(5,0,1,.5)) #changes margins 
+plot1 <- barplot(dat2, beside=TRUE, #puts shrub and open beside each other 
+  xlab="", ylab="", col=c("Grey45","White"), axis.lty=1, ylim=c(0,40), yaxt='n', cex.axis=1.4, cex.lab=1.8)
+error.bar(plot1, dat2,dat3, lwd=2)
+box()
+x<-c(0,10,20,30,40)
+axis(2, at=x, labels=FALSE)
+axis(1, plot1[1,]+0.5, make.italic(c("Amsinckia","Caulanthus","Lepidium","Monolopia","Phacelia")), cex.axis=1.5, padj=c(0.6,0.6,0.8,0.8,0.7))
+axis(1, plot1[1,]+0.5, make.italic(c("tessellata","lasiophyllus","nitidum","lanceolata","tanacetifolia")), cex.axis=1.5, padj=c(2.3,2.0,2.3,2.2,2.2)-0.2) 
+legend(1,40, c("removal","present"), pch=22, pt.bg=c("Grey45","White"), cex=1.7, bty="n")
+
+
+## temperature and humidity 
+data2<-read.table("C:\\Users\\Amanda\\Documents\\PhD\\Chapter 2 seed addition\\HOBOdata\\HOBO data complied 2016.csv", header=T, sep=",")
+str(data2)
+
+library(dplyr)
+
+month <- data2 %>% group_by(micro, month) %>% summarize(temp=mean(temp), RH=mean(RH))
+month.se <- aggregate(data2, by=list(data2$micro,data2$month),se)
+month <- data.frame(month)
+new.order <- c(7,3,5,4,6,2,1,7,3,5,4,6,2,1)
+month[,"neworder"] <- new.order
+month <- month[order(month$micro,month$neworder),]
+rownames(month) <- factor(seq(1,14,1))
+
+month <-timeall %>% group_by(micro, month) %>% summarize(temp=mean(temp), RH=mean(RH))
+month.se <- aggregate(timeall, by=list(timeall$micro,timeall$month),se)
+month <- data.frame(month)
+new.order <- c(6, 2, 4, 3, 5, 1,6, 2, 4, 3, 5, 1, 13)
+month[,"neworder"] <- new.order
+month <- month[order(month$micro,month$neworder),]
+rownames(month) <- factor(seq(1,13,1))
+
+
+## error bar function
+error.bar <- function(x, y, upper, lower=upper, length=0.0,...){
+if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
+stop("vectors must be same length")
+arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+}
+
+month<-month[1:12,]
+par(mar=c(4.5,4.5,1,.5))
+plot(seq(1,6,1)+0.1,month[month$micro=="shrub","temp"], pch=19, col="grey30", ylim=c(0,30), xlim=c(0.8,6.2), cex=2, cex.lab=2, cex.axis=1.9, xaxt="n", xlab="", ylab="temperature (°C)")
+points(seq(1,6,1)-0.1,month[month$micro=="open","temp"], pch=21, col="grey70", type="l", lwd=3) ## puts a line for open
+points(seq(1,6,1)+0.1,month[month$micro=="shrub","temp"], pch=21, col="grey30", type="l",lwd=3) ## puts a line for shrub
+error.bar(seq(1,6,1)-0.1,month[month$micro=="open","temp"],month.se[month$micro=="open","temp"])## error bar for open
+error.bar(seq(1,6,1)+0.1,month[month$micro=="shrub","temp"],month.se[month$micro=="shrub","temp"]) ##error bar for shrub
+points(seq(1,6,1)-0.1,month[month$micro=="open","temp"], pch=19, col="grey70", cex=2) ## plots white points on top so they done have strike through
+points(seq(1,6,1)+0.1,month[month$micro=="shrub","temp"], pch=19, col="grey30", cex=2)
+axis(1, seq(1,6,1), c("Nov","Dec","Jan","Feb","Mar","Apr"), cex.axis=1.9) ##add month axis
+legend(0.8, 30, c("shrub", "open"), pch=19, col=c("grey30", "grey70"), cex=1.5, bty="n")
+
+## humidity
+
+nanatime <- na.omit(timeall)
+month <- nanatime %>% group_by(micro, month) %>% summarize(RH=mean(RH))
+month.se <- aggregate(nanatime, by=list(nanatime$micro,nanatime$month),se)
+month <- data.frame(month)
+new.order <- c(6, 2, 4, 3, 5, 1,6, 2, 4, 3, 5, 1)
+month[,"neworder"] <- new.order
+month <- month[order(month$micro,month$neworder),]
+rownames(month) <- factor(seq(1,12,1))
+
+
+par(mar=c(4.5,4.5,1,.5))
+plot(seq(1,6,1)+0.1,month[month$micro=="shrub","RH"], pch=19, col="grey30", xlim=c(0.8,6.2), ylim=c(70,100), cex=2, cex.lab=2, cex.axis=1.9, xaxt="n", xlab="", ylab="relative humidity(%)")
+points(seq(1,6,1)-0.1,month[month$micro=="open","RH"], pch=21, col="grey70", type="l", lwd=3) ## puts a line for open
+points(seq(1,6,1)+0.1,month[month$micro=="shrub","RH"], pch=21, col="grey30", type="l",lwd=3) ## puts a line for shrub
+error.bar(seq(1,6,1)-0.1,month[month$micro=="open","RH"],month.se[month$micro=="open","RH"])## error bar for open
+error.bar(seq(1,6,1)+0.1,month[month$micro=="shrub","RH"],month.se[month$micro=="shrub","RH"]) ##error bar for shrub
+points(seq(1,6,1)-0.1,month[month$micro=="open","RH"], pch=19, col="grey70", cex=2) ## plots white points on top so they done have strike through
+points(seq(1,6,1)+0.1,month[month$micro=="shrub","RH"], pch=19, col="grey30", cex=2)
+axis(1, seq(1,6,1), c("Nov","Dec","Jan","Feb","Mar","Apr"), cex.axis=1.9) ##add month axis
+#legend(5.5, 30, c("shrub", "open"), pch=19, col=c("green", "darkslateblue"), cex=1.5, bty="n")
+
+
