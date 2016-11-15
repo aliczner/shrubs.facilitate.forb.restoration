@@ -7,6 +7,7 @@ library(MASS)
 library(lsmeans)
 library(metafor)
 library(dplyr)
+library(loop)
 
 
 data<-read.table("C:\\Users\\Amanda\\Documents\\PhD\\Chapter 2 seed addition\\Ch 2 seed addition final survey 2016.csv", header=T, sep=",") ## plant data 
@@ -983,176 +984,114 @@ sample estimates:
 		   
 ## RII calculations
 ## function
-##permutation RII
-perm.rii <- function(x, treatment, control.var, treat.var, variable,perm){
-s1 <- subset(x, x[,treatment] == treat.var, select=variable) ## subset the treatment group
-o1 <- subset(x, x[,treatment] == control.var, select=variable)  ## subset the control group
-min.samp <- min(length(s1[,1]),length(o1[,1]))  ## minimum number of samples
-rii.avg.total <- c() ## set up blank mean vector
-rii.se.total <- c() ## set up blank mean vector
-for (i in 1:perm){ ##loop the sampling of treatment and control groups and calculate RII
-set.seed(i) ## control randomization to return same values
-treat.samp<- sample(s1[,variable],min.samp)
-control.samp<-sample(o1[,variable],min.samp)
-return1 <- (treat.samp - control.samp) / (treat.samp+control.samp)
-rii.avg <- mean(return1)
-rii.se <- se(return1)
-rii.avg.total <- c(rii.avg.total,rii.avg) ## bind all the means together
-rii.se.total <- c(rii.se.total,rii.se) ## bind all the confidence intervals together
-}
-rii.avg <- mean(rii.avg.total)
-rii.se <- mean(rii.se.total)
-treat <- c(treatment)
-rii.results <- data.frame(factor=treat,average=rii.avg,error=rii.se)
-return(rii.results)
+boot.rii <- function(x, treatment, treat.var, control.var, response, iter) {
+boot.function <- function(data, indices){
+
+s1 <- subset(data, data[,treatment] == treat.var, response)
+o1 <- subset(data, data[,treatment] == control.var, response)
+s1.samp <- s1[indices,1]
+o1.samp <- o1[indices,1]
+rii.vals <- (s1.samp - o1.samp) / (s1.samp+o1.samp)
+rii.vals[is.na(rii.vals)] <- 0
+coefs <-mean(rii.vals)
+return(coefs)
+
 }
 
-perm.rii.abd <- function(x, treatment, control.var, treat.var, variable,perm){
-s1 <- subset(x, x[,treatment] == treat.var, select=variable) ## subset the treatment group
-o1 <- subset(x, x[,treatment] == control.var, select=variable)  ## subset the control group
-min.samp <- min(length(s1[,1]),length(o1[,1]))  ## minimum number of samples
-rii.avg.total <- c() ## set up blank mean vector
-rii.se.total <- c() ## set up blank mean vector
-for (i in 1:perm){ ##loop the sampling of treatment and control groups and calculate RII
-set.seed(i) ## control randomization to return same values
-treat.samp<- sample(s1[,variable],min.samp)
-control.samp<-sample(o1[,variable],min.samp)
-return1 <- (treat.samp - control.samp) / (treat.samp+control.samp)
-return1[is.na(return1)] <- 0
-rii.avg <- mean(return1)
-rii.se <- se(return1)
-rii.avg.total <- c(rii.avg.total,rii.avg) ## bind all the means together
-rii.se.total <- c(rii.se.total,rii.se) ## bind all the confidence intervals together
-}
-rii.avg <- mean(rii.avg.total)
-rii.se <- mean(rii.se.total)
-treat <- c(treatment)
-rii.results <- data.frame(factor=treat,average=rii.avg,error=rii.se)
-return(rii.results)
+boot1 <- boot(x, statistic=boot.function, 999)
+boot.ci1 <- boot.ci(boot1, type="bca")
+return(data.frame(mean=boot1$t0,lower=boot.ci1$bca[4],upper=boot.ci1$bca[5]))
 }
 
+## calculate averages for each plot
+aboverii<- subset(data, above>0 & status=="native" & seed=="seed") 
+aboverii <- aboverii %>% group_by(number, exclosure, micro, removal)  %>% summarize(above=mean(above))
+aboverii <- data.frame(aboverii)
 
-## function for standard error
-se <- function(x) sqrt(var(x)/length(x))
-mean <- function(x) sum(x)/length(x)
+belowrii<- subset(data, below >0 & status=="native" & seed=="seed") 
+belowrii <- belowrii %>% group_by(number, exclosure, micro, removal)  %>% summarize(below=mean(below))
+belowrii <- data.frame(belowrii)
 
-## biomass 
+abdrii<- subset(data, status=="native" & seed=="seed") 
+abdrii <- abdrii %>% group_by(number, exclosure, micro, removal)  %>% summarize(abundance=mean(abundance))
+abdrii <- data.frame(abdrii)
 
-## above ground biomass
-aboverii<- subset(data, above>0& status=="native" & seed=="seed") ## subsetting the data to above ground biomass
-overall.ex <- perm.rii(aboverii, "exclosure", "no exclosure","exclosure", "above", 999) ## bootstrapped RII by exclosure 
-overall.micro <- perm.rii(aboverii, "micro", "open","shrub", "above", 999)
-overall.removal <- perm.rii(aboverii, "removal", "present","removal", "above", 999)
+## above-ground biomass
+aboverii<- subset(data, above>0 & status=="native" & seed=="seed") 
+above.micro <- boot.rii(aboverii, "micro", "shrub","open", "above", 999)
+above.excl <- boot.rii(aboverii, "exclosure", "exclosure","no exclosure", "above", 999)
+above.removal <- boot.rii(aboverii, "removal", "removal","present", "above", 999)
 
-overall.results <- rbind(overall.micro, overall.ex, overall.removal) # combining into one data frame 
-overall.results[,"error"] <-overall.results[,"error"]*1.96 ## calculating 95% confidence intervals 
-
-
-rma.uni(overall.results[,"average"], sei=overall.results[,"error"]) ## heterogeniety tests 
-## not significantly different 
-
-## figure for above ground biomass RII c
-error.bar <- function(x, y, upper, lower=upper, length=0.05,...){ ## calculating error bars 
-if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
-stop("vectors must be same length")
-arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
-}
+overall.results <- rbind(above.micro,above.excl,above.removal)
+rownames(overall.results) <- c("micro","exclosure","removal")
 
 par(mar=c(4.5,4.5,1,0)) ## change margins
 par(mfrow=c(1, 3))	## makes graphs into panel style with one row and 3 columns
-plot(seq(1,3,1), overall.results[,"average"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.2,0.6), ylab="RII", xaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
-error.bar(seq(1,3,1), overall.results[,"average"],overall.results[,"error"], lwd=2) # adding error bars 
+x<-c(-0.2, 0, 0.2, 0.4, 0.6)
+plot(seq(1,3,1), overall.results[,"mean"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.1,0.5), ylab="RII", xaxt="n",  xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
+axis(2, at=x, labels=FALSE) 
+arrows(seq(1,3,1),overall.results[,"lower"], seq(1,3,1), overall.results[,"upper"], angle=90, code=3, length=0, lwd=2)
 axis(1, seq(1,3,1), c("microsite","exclosure","removal"), cex.axis=2) # axis labels 
 abline(h=0, lty=2, lwd=2) # line at zero for RII 
-text(2.4, 0.6, "above-ground biomass", cex=2)
+text(2.4, 0.5, "above-ground biomass", cex=2)
 
-# below ground biomass 
-belowrii<- subset(data, below>0 & status=="native" & seed=="seed") ## subsetting the data to below ground biomass
-overall.ex <- perm.rii(belowrii, "exclosure", "no exclosure","exclosure", "below", 999) ## bootstrapped RII by exclosure 
-overall.micro <- perm.rii(belowrii, "micro", "open","shrub", "below", 999)
-overall.removal <- perm.rii(belowrii, "removal", "present","removal", "below", 999)
+## below-ground biomass
+#belowrii<- subset(data, below>0& status=="native" & seed=="seed") 
+below.micro <- boot.rii(belowrii, "micro", "shrub","open", "below", 999)
+below.excl <- boot.rii(belowrii, "exclosure", "exclosure","no exclosure", "below", 999)
+below.removal <- boot.rii(belowrii, "removal", "removal","present", "below", 999)
 
-overall.results <- rbind(overall.micro, overall.ex, overall.removal) # combining into one data frame 
-overall.results[,"error"] <-overall.results[,"error"]*1.96 ## calculating 95% confidence intervals 
-
-
-rma.uni(overall.results[,"average"], sei=overall.results[,"error"]) ## heterogeniety tests 
-## not significantly different 
-
-## figure for below ground biomass  RII 
-error.bar <- function(x, y, upper, lower=upper, length=0.05,...){ ## calculating error bars 
-if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
-stop("vectors must be same length")
-arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
-}
+overall.results <- rbind(below.micro,below.excl,below.removal)
+rownames(overall.results) <- c("micro","exclosure","removal")
 
 par(mar=c(4.5,2.5,1,1)) ## change margins	
 x<-c(-0.2, 0, 0.2, 0.4, 0.6)
-plot(seq(1,3,1), overall.results[,"average"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.2,0.6), ylab="", xaxt="n", yaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
-axis(2, at=x, labels=FALSE) 
-error.bar(seq(1,3,1), overall.results[,"average"],overall.results[,"error"], lwd=2) # adding error bars 
+plot(seq(1,3,1), overall.results[,"mean"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.1,0.5), ylab="", xaxt="n", yaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
+axis(2, at=x, labels=FALSE, tick=FALSE) 
+arrows(seq(1,3,1),overall.results[,"lower"], seq(1,3,1), overall.results[,"upper"], angle=90, code=3, length=0, lwd=2)
 axis(1, seq(1,3,1), c("microsite","exclosure","removal"), cex.axis=2) # axis labels 
 abline(h=0, lty=2, lwd=2) # line at zero for RII 
-text(2.4, 0.6, "below-ground biomass", cex=2)
+text(2.4, 0.5, "below-ground biomass", cex=2)
 
+## abundance
+#abdrii<- subset(data, status=="native" & seed=="seed") 
+abd.micro <- boot.rii(abdrii, "micro", "shrub","open", "abundance", 999)
+abd.excl <- boot.rii(abdrii, "exclosure", "exclosure","no exclosure", "abundance", 999)
+abd.removal <- boot.rii(abdrii, "removal", "removal","present", "abundance", 999)
 
-## abundance 
-abundancerii<-subset(data, status=="native" & seed=="seed")
-overall.ex <- perm.rii.abd(abundancerii, "exclosure", "no exclosure","exclosure", "abundance", 999) ## bootstrapped RII by exclosure 
-overall.micro <- perm.rii.abd(abundancerii, "micro", "open","shrub", "abundance", 999)
-overall.removal <- perm.rii.abd(abundancerii, "removal", "present","removal", "abundance", 999)
+overall.results <- rbind(abd.micro,abd.excl,abd.removal)
+rownames(overall.results) <- c("micro","exclosure","removal")
 
-overall.results <- rbind(overall.micro, overall.ex, overall.removal) # combining into one data frame 
-overall.results[,"error"] <-overall.results[,"error"]*1.96 ## calculating 95% confidence intervals 
-
-
-rma.uni(overall.results[,"average"], sei=overall.results[,"error"]) ## heterogeniety tests 
-## not significantly different 
-
-## figure for abundance RII 
-error.bar <- function(x, y, upper, lower=upper, length=0.05,...){ ## calculating error bars 
-if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
-stop("vectors must be same length")
-arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
-}
-
-par(mar=c(4.5,1.5,1,3)) ## change margins
+par(mar=c(4.5,1.5,1,3))  ## change margins	
 x<-c(-0.2, 0, 0.2, 0.4, 0.6)
-plot(seq(1,3,1), overall.results[,"average"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.2,0.6), ylab="", xaxt="n", yaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2)
-axis(2, at=x, labels=FALSE) 
-error.bar(seq(1,3,1), overall.results[,"average"],overall.results[,"error"], lwd=2) # adding error bars 
+plot(seq(1,3,1), overall.results[,"mean"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.1,0.5), ylab="", xaxt="n", yaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
+axis(2, at=x, labels=FALSE, tick=FALSE) 
+arrows(seq(1,3,1),overall.results[,"lower"], seq(1,3,1), overall.results[,"upper"], angle=90, code=3, length=0, lwd=2)
 axis(1, seq(1,3,1), c("microsite","exclosure","removal"), cex.axis=2) # axis labels 
 abline(h=0, lty=2, lwd=2) # line at zero for RII 
-text(2.8, 0.6, "abundance", cex=2)
+text(2.6, 0.5, "abundance", cex=2)
 
+## flowers
 
-## avg number of flower 
-flowerrii<-subset(data, flowersavg>0 & status=="native" & seed=="seed")
-overall.ex <- perm.rii(flowerrii, "exclosure", "no exclosure","exclosure", "flowersavg", 999) ## bootstrapped RII by exclosure 
-overall.micro <- perm.rii(flowerrii, "micro", "open","shrub", "flowersavg", 999)
-overall.removal <- perm.rii(flowerrii, "removal", "present","removal", "flowersavg", 999)
+flowersrii <- subset(data, flowersavg>0& status=="native" & seed=="seed") 
+flowersrii <- flowersrii %>% group_by(number, exclosure, micro, removal)  %>% summarize(flowersavg=mean(flowersavg))
+flowersrii <- data.frame(flowersrii)
 
-overall.results <- rbind(overall.micro, overall.ex, overall.removal) # combining into one data frame 
-overall.results[,"error"] <-overall.results[,"error"]*1.96 ## calculating 95% confidence intervals 
+flowers.micro <- boot.rii(flowersrii, "micro", "shrub","open", "flowersavg", 999)
+flowers.excl <- boot.rii(flowersrii, "exclosure", "exclosure","no exclosure", "flowersavg", 999)
+flowers.removal <- boot.rii(flowersrii, "removal", "removal","present", "flowersavg", 999)
 
+overall.results <- rbind(flowers.micro,flowers.excl,flowers.removal)
+rownames(overall.results) <- c("micro","exclosure","removal")
 
-rma.uni(overall.results[,"average"], sei=overall.results[,"error"]) ## heterogeniety tests 
-## not significantly different 
-
-## figure for flowersavg RII 
-error.bar <- function(x, y, upper, lower=upper, length=0.05,...){ ## calculating error bars 
-if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
-stop("vectors must be same length")
-arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
-}
-
+par(mfrow=c(1, 1))
 par(mar=c(4.5,4.5,1,1)) ## change margins	
-plot(seq(1,3,1), overall.results[,"average"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.2,0.6), ylab="RII mean number of flowers", xaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
-error.bar(seq(1,3,1), overall.results[,"average"],overall.results[,"error"], lwd=2) # adding error bars 
+x<-c(-0.2, 0, 0.2, 0.4, 0.6)
+plot(seq(1,3,1), overall.results[,"mean"], pch=19, xlim=c(0.8,3.2), ylim=c(-0.1,0.5), ylab="RII mean number of flowers", xaxt="n", xlab="", cex=2, cex.axis=1.8, cex.lab=2) ## making plot
+axis(2, at=x, labels=FALSE) 
+arrows(seq(1,3,1),overall.results[,"lower"], seq(1,3,1), overall.results[,"upper"], angle=90, code=3, length=0, lwd=2)
 axis(1, seq(1,3,1), c("microsite","exclosure","removal"), cex.axis=2) # axis labels 
-abline(h=0, lty=2, lwd=2) # line at zero for RII
-
-
+abline(h=0, lty=2, lwd=2) # line at zero for RII 
 
 ## figures for raw data for above-ground biomass, below ground biomass, abundance, and average number of flowers and environmental data 
 
